@@ -48,5 +48,41 @@ check "Нет файлов, доступных для записи всем" "0"
 # Проверка г) права на закрытый ключ 600
 check "Права на ключ 600" "600" "$(sudo stat -c '%a' /etc/ssl/private/devops.key)"
 
+# [5] Контейнеризация
+echo "[5] Контейнеризация"
+
+# a) Служба docker активна
+if systemctl is-active --quiet docker; then
+    echo "[OK] Служба Docker активна"
+else
+    echo "[FAIL] Служба Docker неактивна"
+fi
+
+# б) Контейнер СУБД в состоянии healthy
+DB_HEALTH=$(docker inspect -f '{{.State.Health.Status}}' app-db-1 2>/dev/null || echo "not_found")
+if [ "$DB_HEALTH" == "healthy" ]; then
+    echo "[OK] Контейнер СУБД здоров"
+else
+    echo "[FAIL] Контейнер СУБД не здоров (статус: $DB_HEALTH)"
+fi
+
+# в) Порты 5000 и 5432 не слушаются ни на одном адресе, кроме 127.0.0.1
+BAD_PORTS=$(ss -tln | grep -E ':(5000|5432)\b' | grep -v '127.0.0.1' || true)
+if [ -z "$BAD_PORTS" ]; then
+    echo "[OK] Порты 5000 и 5432 доступны только на 127.0.0.1"
+else
+    echo "[FAIL] Найдены небезопасные прослушивания портов:"
+    echo "$BAD_PORTS"
+fi
+
+# г) Права файла ~/app/.env равны 600
+ENV_PERMS=$(stat -c '%a' ~/app/.env 2>/dev/null || echo "missing")
+if [ "$ENV_PERMS" == "600" ]; then
+    echo "[OK] Права на .env (600)"
+else
+    echo "[FAIL] Права на .env (ожидалось: '600', получено: '$ENV_PERMS')"
+fi
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
+
