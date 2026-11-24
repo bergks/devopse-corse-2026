@@ -83,6 +83,35 @@ else
     echo "[FAIL] Права на .env (ожидалось: '600', получено: '$ENV_PERMS')"
 fi
 
+echo "[6] Контрольная работа № 2"
+
+# --- а) контейнер redis в состоянии healthy ---
+# Определяем контейнер по имени сервиса, а не по имени, сформированному Compose
+REDIS_CID=$(docker compose --project-directory "$HOME/kr2" ps -q redis 2>/dev/null)
+REDIS_HEALTH=$(docker inspect -f '{{.State.Health.Status}}' "$REDIS_CID" 2>/dev/null || echo "not_found")
+check "Контейнер redis в состоянии healthy" \
+      "[ \"$REDIS_HEALTH\" = \"healthy\" ]"
+
+# --- б) порт 8002 опубликован только на 127.0.0.1 ---
+APP_PORT=$(docker compose --project-directory "$HOME/kr2" port app 8002 2>/dev/null || true)
+check "Порт 8002 опубликован только на 127.0.0.1 (получено: ${APP_PORT:-пусто})" \
+      "[ \"$APP_PORT\" = \"127.0.0.1:8002\" ]"
+
+# --- в) права файла ~/kr2/.env равны 600 ---
+ENV_PERMS=$(stat -c '%a' "$HOME/kr2/.env" 2>/dev/null || echo "missing")
+check "Права на ~/kr2/.env равны 600 (получено: $ENV_PERMS)" \
+      "[ \"$ENV_PERMS\" = \"600\" ]"
+
+# --- г) сертификат kr2.crt истекает не ранее чем через 30 дней ---
+# openssl x509 -checkend <секунды> возвращает 0, если сертификат действителен
+# ещё указанное число секунд (30 дней = 2592000 с), и 1, если истекает раньше
+check "Сертификат /etc/ssl/certs/kr2.crt действителен не менее 30 дней" \
+      "openssl x509 -in /etc/ssl/certs/kr2.crt -noout -checkend 2592000"
+
+# --- д) ресурс kr2 активирован (симлинк в sites-enabled) ---
+check "Ресурс kr2 активирован в /etc/nginx/sites-enabled/" \
+      "[ -L /etc/nginx/sites-enabled/kr2 ]"
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
 
