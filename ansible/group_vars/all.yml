@@ -1,0 +1,6 @@
+---
+app_image: "ghcr.io/bergks/devops-ci-app"
+app_tag: "4702f159a204266ec9c5ab0bbae4cb2294fbc9c8"
+app_container_name: "devops-ci-app"
+app_host_port: 5000
+app_internal_port: 5000
